@@ -11,13 +11,15 @@ def handler(lead: PropertyLead, user_id: str = "", conv_id: str = "") -> list:
 
     try:
         # Crear descripción para búsqueda semántica
-        lead_description = create_lead_description(lead)
+        # con OPENSEARCH // lead_description = create_lead_description(lead)
+        properties = search_properties_postgres(lead)
 
         # Extraer filtros estructurados del lead
         filters = extract_search_filters(lead)
 
         # Realizar búsqueda híbrida
         properties = search_similar_properties(
+
             query=lead_description,
             ciudad=filters.get("ciudad", ""),
             property_type=filters.get("property_type", ""),

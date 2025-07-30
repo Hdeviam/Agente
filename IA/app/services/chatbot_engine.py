@@ -14,6 +14,39 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
 
     primary_key = "USER#"+user_id+"#CONV#"+conv_id
 
+    # 🔄 RESET DE BÚSQUEDA - Detectar si el usuario quiere reiniciar
+    reset_keywords = [
+        'nueva búsqueda', 'nueva busqueda', 'reiniciar', 'reset', 'empezar de nuevo',
+        'volver a empezar', 'cancelar búsqueda', 'cancelar busqueda', 'comenzar otra vez',
+        'nueva consulta', 'otra búsqueda', 'otra busqueda', 'empezar otra vez'
+    ]
+
+    message_lower = message.lower().strip()
+    is_reset_request = any(keyword in message_lower for keyword in reset_keywords)
+
+    if is_reset_request:
+        print(f"DEBUG - Reset solicitado: {message}")
+
+        # Limpiar metadata y reiniciar conversación
+        reset_metadata = {
+            'stage': 'extract',
+            'conversation_length': 2.0,
+            'user_name': user_name,
+            'awaiting_confirmation': False,
+            'reset_requested': True
+        }
+
+        # Respuesta de confirmación de reset
+        reset_response = {
+            'model_response': f'¡Perfecto {user_name}! Vamos a comenzar una nueva búsqueda desde cero. ¿Qué tipo de propiedad estás buscando?'
+        }
+
+        # Guardar mensaje de reset y respuesta
+        save_user_message(primary_key, message, reset_metadata)
+        save_response_message(primary_key, reset_response, reset_metadata, 'extract')
+
+        return 'extract', reset_response
+
     # 🛡️ FILTRO DE INTENCIONES - Validar que la consulta sea inmobiliaria
     is_valid, validation_reason = is_real_estate_related(message)
 
@@ -106,7 +139,7 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
                 current_lead = last_metadata.get('lead')
                 if current_lead:
                     try:
-                        from app.services.stages.stage2_recommend import handler as stage2_handler
+                        from app.services.stages.stage2_recommend_postgres import handler as stage2_handler
                         from app.models.PropertyLead import PropertyLead
 
                         # Recrear el lead object
@@ -167,7 +200,7 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
                     lead = response["lead"]             # recuperamos el lead
 
                     if response["next_stage"] == True:
-                        from app.services.stages.stage2_recommend import handler as stage2_handler
+                        from app.services.stages.stage2_recommend_postgres import handler as stage2_handler
                         chat_stage = "recommend"    # cambiamos el chat_stage si amerita.
                         properties = stage2_handler(lead) # ejecutamos el siguiente stage directamente y asociamos su respuesta
                         print(f"DEBUG - Stage2 returned {len(properties) if properties else 0} properties")
@@ -295,7 +328,7 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
 
                     if message_lower in ['si', 'sí', 'yes', 'buscar', 'dale'] or 'si' in message_lower:
                         # Ejecutar nueva búsqueda con criterios actualizados
-                        from app.services.stages.stage2_recommend import handler as stage2_handler
+                        from app.services.stages.stage2_recommend_postgres import handler as stage2_handler
                         properties = stage2_handler(current_lead)
 
                         metadata['last_recommendations'] = properties
@@ -332,6 +365,9 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
     # Si la respuesta es una lista de propiedades (primera vez en recommend), guardar en metadata
     if isinstance(response, list) and len(response) > 0:
         metadata['last_recommendations'] = response
+        metadata['awaiting_confirmation'] = True
+    elif chat_stage == 'recommend' and 'last_recommendations' in metadata and len(metadata.get('last_recommendations', [])) > 0:
+        # Si estamos en recommend y ya tenemos propiedades, mantener awaiting_confirmation
         metadata['awaiting_confirmation'] = True
     else:
         # Asegurarse que no quede el flag si la respuesta no es una lista

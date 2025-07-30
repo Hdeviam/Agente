@@ -1,8 +1,8 @@
 import logging
 import json
 import os
-from datetime import datet
-yping import Dict, Any, Optional
+from datetime import datetime
+from typing import Dict, Any, Optional
 
 class StructuredLogger:
     """
@@ -77,7 +77,7 @@ class StructuredLogger:
     def log_performance(self, operation: str, duration_ms: float, context: Dict = None):
         """Log métricas de performance"""
         self._log_structured("performance", {
-operation": operation,
+    "operation": operation,
             "duration_ms": duration_ms,
             "context": context or {},
             "timestamp": datetime.utcnow().isoformat()
