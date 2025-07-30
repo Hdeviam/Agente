@@ -135,36 +135,11 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
                 chat_stage = 'display_properties'  # Nuevo stage para mostrar propiedades
                 print(f"DEBUG - Response generated: {response.get('model_response', '')[:100]}...")
             else:
-                # Fallback: intentar buscar propiedades nuevamente si no están en metadata
-                print("DEBUG - No properties in metadata, attempting fallback search...")
-                current_lead = last_metadata.get('lead')
-                if current_lead:
-                    try:
-                        from app.services.stages.stage2_recommend_postgres import handler as stage2_handler
-
-                        # Recrear el lead object
-                        lead_obj = PropertyLead(**current_lead)
-                        properties = stage2_handler(lead_obj)
-
-                        if properties:
-                            response = enrich_properties_display(properties, user_name)
-                            metadata['last_recommendations'] = properties  # Guardar para próxima vez
-                            metadata['awaiting_confirmation'] = False
-                            chat_stage = 'display_properties'
-                            print(f"DEBUG - Fallback search successful: {len(properties)} properties found")
-                        else:
-                            response = {'model_response': f'Lo siento {user_name}, no encontré propiedades que coincidan con tus criterios. ¿Te gustaría hacer una nueva búsqueda?'}
-                            metadata['awaiting_confirmation'] = False
-                            chat_stage = 'extract'
-                    except Exception as e:
-                        print(f"DEBUG - Fallback search failed: {e}")
-                        response = {'model_response': f'Lo siento {user_name}, hubo un problema al buscar propiedades. ¿Te gustaría intentar una nueva búsqueda?'}
-                        metadata['awaiting_confirmation'] = False
-                        chat_stage = 'extract'
-                else:
-                    response = {'model_response': f'Lo siento {user_name}, no encontré propiedades para mostrar. ¿Te gustaría hacer una nueva búsqueda?'}
-                    metadata['awaiting_confirmation'] = False
-                    chat_stage = 'extract'
+                # Mostrar mensaje amigable cuando no hay propiedades
+                response = enrich_properties_display(properties, user_name)
+                metadata['awaiting_confirmation'] = False
+                chat_stage = 'no_properties'
+                print(f"DEBUG - No properties found, showing friendly message")
 
         # Opción B: Iniciar nueva búsqueda
         elif (message_lower in ['b', 'opcion b', 'opción b', 'reiniciar', 'reset', 'nueva busqueda', 'nueva búsqueda', 'nueva', 'buscar'] or
@@ -259,6 +234,30 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
                     else:
                         # Respuesta por defecto
                         response = {'model_response': f'No estoy seguro de entender {user_name}. ¿Podrías elegir una de las opciones?\n\n🔍 **A** - Nueva búsqueda\n💬 **B** - Más detalles\n🔄 **C** - Refinar búsqueda\n❌ **Salir** - Terminar'}
+
+                    lead = last_metadata.get('lead', {})
+                    break
+                case "no_properties":
+                    # Stage para manejar cuando no se encuentran propiedades
+                    message_lower = message.lower().strip()
+                    intent = check_intent(message)
+                    user_name = last_metadata.get('user_name', user_name or 'amigo')
+
+                    if message_lower in ['a', 'opcion a', 'opción a', 'buscar', 'nueva'] or 'nueva' in message_lower:
+                        # Nueva búsqueda
+                        response = {'model_response': f'Perfecto {user_name}, vamos a comenzar una nueva búsqueda. ¿En qué ciudad o distrito te gustaría buscar una propiedad?'}
+                        chat_stage = 'extract'
+                    elif message_lower in ['b', 'opcion b', 'opción b', 'refinar', 'filtrar'] or 'refin' in message_lower:
+                        # Refinar búsqueda
+                        response = {'model_response': f'Excelente {user_name}, vamos a refinar tu búsqueda. ¿Qué criterio te gustaría ajustar? Por ejemplo: presupuesto, número de habitaciones, ubicación específica, etc.'}
+                        chat_stage = 'refine_search'
+                    elif message_lower in ['salir', 'terminar', 'cancelar'] or intent == 'negative':
+                        # Terminar búsqueda
+                        response = {'model_response': f'Entendido {user_name}. Ha sido un placer ayudarte en tu búsqueda. Si necesitas algo más, estaré aquí para asistirte.'}
+                        chat_stage = 'extract'
+                    else:
+                        # Repetir opciones con más claridad
+                        response = {'model_response': f'😔 Lo siento {user_name}, por el momento no tenemos propiedades disponibles en tu búsqueda.\n\n¿Te gustaría hacer una nueva búsqueda o refinar tus criterios?\n\n🔍 **A** - Hacer una nueva búsqueda en otra ubicación\n🔄 **B** - Refinar tus criterios de búsqueda (presupuesto, tipo, etc.)\n❌ **Salir** - Terminar la búsqueda\n\nPor favor, responde con "A", "B" o "Salir".'}
 
                     lead = last_metadata.get('lead', {})
                     break
@@ -568,7 +567,27 @@ def enrich_properties_display(properties, user_name=""):
     Enriquecer la presentación de las propiedades encontradas con un toque más humano
     """
     if not properties:
-        return {'model_response': f'Lo siento {user_name}, no se encontraron propiedades que coincidan con tus criterios.'}
+        # Mensaje amigable cuando no se encuentran propiedades con sugerencias de alternativas
+        alternative_suggestions = [
+            "Miraflores, Lima",  # Área popular
+            "San Isidro, Lima",  # Área comercial
+            "Barranco, Lima",    # Área residencial
+            "Surco, Lima",       # Área residencial
+            "San Borja, Lima"    # Área residencial
+        ]
+        
+        import random
+        suggestion = random.choice(alternative_suggestions)
+        
+        return {
+            'model_response': f'😔 Lo siento {user_name}, por el momento no tenemos propiedades disponibles en tu búsqueda.\n\n'
+                             f'¿Te gustaría buscar en {suggestion} donde sí tenemos opciones disponibles?\n\n'
+                             f'Alternativamente, puedes:\n'
+                             f'🔍 **A** - Hacer una nueva búsqueda en otra ubicación\n'
+                             f'🔄 **B** - Refinar tus criterios de búsqueda (presupuesto, tipo, etc.)\n'
+                             f'❌ **Salir** - Terminar la búsqueda\n\n'
+                             f'Por favor, responde con "A", "B" o "Salir".'
+        }
 
     # Mensaje de introducción personalizado
     intro_messages = [
@@ -594,7 +613,7 @@ def enrich_properties_display(properties, user_name=""):
         # Crear una presentación más natural
         property_display = f"""
 {emoji} **Opción {i}** (Ref: {property_id})
-� Coincidencia: {score:.0%}
+📊 Coincidencia: {score:.0%}
 
 {property_text}
 

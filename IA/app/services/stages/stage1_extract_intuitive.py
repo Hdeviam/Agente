@@ -19,16 +19,20 @@ def handle_smart_extraction(conversation, current_lead=None):
 
     # Determinar si necesitamos más información
     is_complete = has_minimum_data(updated_lead)
-
-    if is_complete:
+    
+    # Verificar si ya se han preguntado todos los campos relevantes
+    # Incluso si tenemos los datos mínimos, preguntamos por campos opcionales
+    next_question = get_next_question_smart(updated_lead)
+    
+    if is_complete and next_question.startswith("¡Genial!"):
+        # Si ya tenemos todos los datos y el mensaje es de confirmación final
         return {
             "lead": updated_lead,
             "next_stage": True,
             "model_response": None
         }
     else:
-        # Generar pregunta para el siguiente dato
-        next_question = get_next_question_smart(updated_lead)
+        # Generar pregunta para el siguiente dato (incluyendo opcionales)
         return {
             "lead": updated_lead,
             "next_stage": False,
@@ -132,28 +136,71 @@ def extract_info_intuitive(message, current_lead):
             new_lead.transaccion = "compra"
 
     # 🛏️ DORMITORIOS - Súper intuitivo
-    if not new_lead.numero_dormitorios:
-        # Patrones numéricos
-        dormitorio_patterns = [
-            (r'(\d+)\s*dormitorio', lambda m: int(m.group(1))),
-            (r'(\d+)\s*habitacion', lambda m: int(m.group(1))),
-            (r'(\d+)\s*cuarto', lambda m: int(m.group(1))),
+    if new_lead.numero_dormitorios is None:  # Solo procesar si no se ha establecido
+        # Verificar si el usuario indica que no le importa
+        no_importa_keywords = [
+            'no importa', 'no me importa', 'cualquiera', 'no importa cuantos',
+            'cualquiera esta bien', 'no importa la cantidad', 'sin preferencia',
+            'no tengo preferencia', 'da igual'
         ]
+        
+        if any(keyword in message_lower for keyword in no_importa_keywords):
+            new_lead.numero_dormitorios = None  # Mantener como None para indicar que no importa
+        else:
+            # Patrones numéricos
+            dormitorio_patterns = [
+                (r'(\d+)\s*dormitorio', lambda m: int(m.group(1))),
+                (r'(\d+)\s*habitacion', lambda m: int(m.group(1))),
+                (r'(\d+)\s*cuarto', lambda m: int(m.group(1))),
+            ]
 
-        for pattern, extractor in dormitorio_patterns:
-            match = re.search(pattern, message_lower)
-            if match:
-                new_lead.numero_dormitorios = extractor(match)
-                break
+            for pattern, extractor in dormitorio_patterns:
+                match = re.search(pattern, message_lower)
+                if match:
+                    new_lead.numero_dormitorios = extractor(match)
+                    break
 
-        # Patrones en palabras
-        if not new_lead.numero_dormitorios:
-            if any(word in message_lower for word in ['un dormitorio', 'una habitacion', 'un cuarto']):
-                new_lead.numero_dormitorios = 1
-            elif any(word in message_lower for word in ['dos dormitorio', 'dos habitacion', 'dos cuarto']):
-                new_lead.numero_dormitorios = 2
-            elif any(word in message_lower for word in ['tres dormitorio', 'tres habitacion', 'tres cuarto']):
-                new_lead.numero_dormitorios = 3
+            # Patrones en palabras
+            if new_lead.numero_dormitorios is None:
+                if any(word in message_lower for word in ['un dormitorio', 'una habitacion', 'un cuarto']):
+                    new_lead.numero_dormitorios = 1
+                elif any(word in message_lower for word in ['dos dormitorio', 'dos habitacion', 'dos cuarto']):
+                    new_lead.numero_dormitorios = 2
+                elif any(word in message_lower for word in ['tres dormitorio', 'tres habitacion', 'tres cuarto']):
+                    new_lead.numero_dormitorios = 3
+
+    # 🛁 BAÑOS - Súper intuitivo
+    if new_lead.numero_banos is None:  # Solo procesar si no se ha establecido
+        # Verificar si el usuario indica que no le importa
+        no_importa_keywords = [
+            'no importa', 'no me importa', 'cualquiera', 'no importa cuantos',
+            'cualquiera esta bien', 'no importa la cantidad', 'sin preferencia',
+            'no tengo preferencia', 'da igual'
+        ]
+        
+        if any(keyword in message_lower for keyword in no_importa_keywords):
+            new_lead.numero_banos = None  # Mantener como None para indicar que no importa
+        else:
+            # Patrones numéricos para baños
+            banos_patterns = [
+                (r'(\d+)\s*bano', lambda m: int(m.group(1))),
+                (r'(\d+)\s*baño', lambda m: int(m.group(1))),
+            ]
+
+            for pattern, extractor in banos_patterns:
+                match = re.search(pattern, message_lower)
+                if match:
+                    new_lead.numero_banos = extractor(match)
+                    break
+
+            # Patrones en palabras
+            if new_lead.numero_banos is None:
+                if any(word in message_lower for word in ['un bano', 'un baño']):
+                    new_lead.numero_banos = 1
+                elif any(word in message_lower for word in ['dos bano', 'dos baño']):
+                    new_lead.numero_banos = 2
+                elif any(word in message_lower for word in ['tres bano', 'tres baño']):
+                    new_lead.numero_banos = 3
 
     # 💵 PRESUPUESTO - Súper intuitivo
     if not new_lead.presupuesto:
@@ -190,15 +237,18 @@ def get_next_question_smart(lead):
         return f"¡Excelente elección! ¿Estás buscando para alquilar o para comprar tu {tipo}? 🏠"
 
     elif not lead.numero_dormitorios:
-        return "¿Cuántos dormitorios necesitas? Puedes decirme: 1, 2, 3 dormitorios, o los que necesites 🛏️"
+        return "¿Cuántos dormitorios necesitas? (Opcional) Puedes decirme: 1, 2, 3 dormitorios, o simplemente decir 'no importa' si prefieres 🛏️"
+
+    elif not lead.numero_banos:
+        return "¿Cuántos baños necesitas? (Opcional) Puedes decirme: 1, 2, 3 baños, o simplemente decir 'no importa' si prefieres 🛁"
 
     elif not lead.presupuesto:
         tipo = lead.tipo_propiedad[0] if lead.tipo_propiedad else "propiedad"
         transaccion = lead.transaccion or "buscar"
-        return f"¿Cuál es tu presupuesto aproximado para {transaccion} el {tipo}? Por ejemplo: 1500 soles, 200000 soles, o el rango que manejes 💰"
+        return f"¿Cuál es tu presupuesto aproximado para {transaccion} el {tipo}? (Opcional) Por ejemplo: 1500 soles, 200000 soles, o simplemente decir 'no tengo presupuesto definido' 💰"
 
     else:
-        return "¡Genial! Con toda esa información puedo ayudarte a encontrar opciones perfectas para ti 🎉"
+        return "¡Genial! Con toda esa información puedo ayudarte a encontrar opciones perfectas para ti 🎉 ¿Te gustaría agregar algún otro detalle como amenities o cercanías? (Opcional)"
 
 def has_minimum_data(lead):
     """Verifica si tenemos datos mínimos"""
