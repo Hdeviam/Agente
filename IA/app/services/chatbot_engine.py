@@ -1,6 +1,7 @@
 import random
 from typing import Optional
 from app.models.ChatMessage import ChatHistoryElement, ChatMessage
+from app.models.PropertyLead import PropertyLead
 from app.core.config import DYNAMODB_TABLE
 from app.utils.intent_recognition import check_intent
 from app.utils.intent_filter_simple import is_real_estate_related, get_rejection_message
@@ -140,7 +141,6 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
                 if current_lead:
                     try:
                         from app.services.stages.stage2_recommend_postgres import handler as stage2_handler
-                        from app.models.PropertyLead import PropertyLead
 
                         # Recrear el lead object
                         lead_obj = PropertyLead(**current_lead)
@@ -195,26 +195,35 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
             print("loop count: ", i)
             match chat_stage:
                 case "extract":
-                    from app.services.stages.stage1_extract import handle as stage1_handler
-                    response = stage1_handler(latest_conversation)
-                    lead = response["lead"]             # recuperamos el lead
+                    from app.services.stages.stage1_extract_intuitive import handle_smart_extraction, is_greeting_message, generate_greeting_response
 
-                    if response["next_stage"] == True:
-                        from app.services.stages.stage2_recommend_postgres import handler as stage2_handler
-                        chat_stage = "recommend"    # cambiamos el chat_stage si amerita.
-                        properties = stage2_handler(lead) # ejecutamos el siguiente stage directamente y asociamos su respuesta
-                        print(f"DEBUG - Stage2 returned {len(properties) if properties else 0} properties")
-                        print(f"DEBUG - Properties sample: {properties[:1] if properties else 'None'}")
+                    # Obtener lead actual de metadata si existe
+                    current_lead = last_metadata.get('lead')
+                    if current_lead:
+                        current_lead = PropertyLead(**current_lead)
 
-                        # Guardar las propiedades en los metadatos para el flujo de confirmación
-                        metadata['last_recommendations'] = properties
-                        metadata['awaiting_confirmation'] = True
-                        print(f"DEBUG - Saving {len(properties)} properties to metadata")
+                    # Detectar si es un saludo simple
+                    if is_greeting_message(message) and not current_lead:
+                        response = {'model_response': generate_greeting_response(user_name)}
+                        lead = PropertyLead()  # Lead vacío para empezar
+                    else:
+                        # Usar extracción inteligente
+                        smart_result = handle_smart_extraction(latest_conversation, current_lead)
+                        response = smart_result
+                        lead = smart_result["lead"]
 
-                        # Mostrar mensaje de confirmación enriquecido
-                        user_name = last_metadata.get('user_name', user_name)
-                        property_count = len(properties) if properties else 0
-                        response = {'model_response': f'¡Hola {user_name}! Encontré {property_count} propiedades que podrían interesarte. ¿Qué te gustaría hacer?\n\nA. 🏠 Mostrar las propiedades encontradas\nB. 🔍 Hacer una nueva búsqueda\n\nPor favor, responde con "A" o "B" para indicarme qué deseas hacer.'}
+                        if smart_result["next_stage"] == True:
+                            from app.services.stages.stage2_recommend_postgres import handler as stage2_handler
+                            chat_stage = "recommend"
+                            properties = stage2_handler(lead)
+
+                            # Guardar propiedades y configurar confirmación
+                            metadata['last_recommendations'] = properties
+                            metadata['awaiting_confirmation'] = True
+
+                            user_name = last_metadata.get('user_name', user_name)
+                            property_count = len(properties) if properties else 0
+                            response = {'model_response': f'¡Perfecto {user_name}! Encontré {property_count} propiedades que podrían interesarte. ¿Qué te gustaría hacer?\n\nA. 🏠 Mostrar las propiedades encontradas\nB. 🔍 Hacer una nueva búsqueda\n\nPor favor, responde con "A" o "B" para indicarme qué deseas hacer.'}
                     break
                 case "recommend":
                     # Este caso ahora solo se activa la primera vez que se recomienda.
