@@ -112,7 +112,7 @@ def generate_smart_question(lead, missing_data):
 
     # Preguntas priorizadas
     if "tipo_propiedad" in missing_data:
-        return "¿Qué tipo de propiedad estás buscando? Por ejemplo: departamento, casa, oficina..."
+        return f"¿Qué tipo de propiedad estás buscando? Por ejemplo: {', '.join(get_property_types_from_db())}..."
 
     elif "ubicacion" in missing_data:
         return "¿En qué ciudad o distrito te gustaría buscar? Por ejemplo: Lima, Miraflores, San Isidro..."
@@ -153,15 +153,16 @@ def is_greeting_message(message):
 
 def generate_greeting_response(user_name=""):
     """Genera respuesta de saludo personalizada"""
-    import random
+    from app.services.postgres_queries import get_property_types_from_db
+import random
 
-    agent_names = ["Carlos", "Sofía", "Andrés", "Valentina", "Mateo", "Isabella"]
+    agent_names = ["Sofía"]
     agent_name = random.choice(agent_names)
 
     name_part = f" {user_name}" if user_name else ""
 
     greetings = [
-        f"¡Hola{name_part}! Soy {agent_name}, tu agente inmobiliario virtual. Me da mucho gusto conocerte. ¿Qué tipo de propiedad estás buscando?",
+        f"¡Hola{name_part}! Soy {agent_name}, tu agente inmobiliario virtual. Me da mucho gusto conocerte. ¿Qué tipo de propiedad estás buscando? (ej. {', '.join(get_property_types_from_db())})",
         f"¡Qué tal{name_part}! Mi nombre es {agent_name} y seré tu asistente para encontrar la propiedad perfecta. ¿En qué puedo ayudarte?",
         f"¡Hola{name_part}! Soy {agent_name}, especialista en bienes raíces. Estoy aquí para ayudarte a encontrar tu hogar ideal. ¿Qué buscas?",
         f"¡Bienvenido{name_part}! Me llamo {agent_name} y me especializo en conectar personas con sus propiedades perfectas. ¿Qué tipo de inmueble te interesa?"

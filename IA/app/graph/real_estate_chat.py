@@ -17,11 +17,23 @@ def run_chatbot_flow(user_message: str) -> dict:
 
     # 3) Si hay, buscar recomendaciones
     resultados = search_similar_properties(user_message, ciudad=ciudad, k=3)
-    texto = "🏡 Estas propiedades podrían interesarte:\n\n"
     ids = []
-    for i, r in enumerate(resultados, 1):
-        texto += f"🏠 Propiedad #{i} (ID: {r['id']}): {r['text']}\n\n"
-        ids.append(r["id"])
+    if resultados:
+        texto = "🏡 Estas propiedades podrían interesarte:\n\n"
+        for i, r in enumerate(resultados, 1):
+            texto += f"🏠 Propiedad #{i} (ID: {r['id']}): {r['text']}\n\n"
+            ids.append(r["id"])
+    else:
+        texto = (
+            "No encontramos propiedades que coincidan con tu búsqueda actual.\n\n"
+            "¿Te gustaría refinarla? Podríamos intentar:\n"
+            "A. Cambiar la ubicación (ej. 'Buscar en Miraflores')\n"
+            "B. Modificar el tipo de propiedad (ej. 'Quiero un departamento')\n"
+            "C. Ajustar el tipo de transacción (ej. 'Para alquiler')\n"
+            "D. Iniciar una nueva búsqueda desde cero."
+        )
+        # Aquí podrías añadir lógica para extraer el lead de user_message y dar sugerencias más específicas
+        # Por ahora, se usa un mensaje genérico.
 
     return {
         "stage": 2,

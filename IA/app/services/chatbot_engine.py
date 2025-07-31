@@ -1,5 +1,6 @@
 import random
 from typing import Optional
+from app.services.postgres_queries import get_property_types_from_db
 from app.models.ChatMessage import ChatHistoryElement, ChatMessage
 from app.models.PropertyLead import PropertyLead
 from app.core.config import DYNAMODB_TABLE
@@ -8,7 +9,7 @@ from app.utils.intent_filter_simple import is_real_estate_related, get_rejection
 from app.services.dynamodb_queries import message_wrapper_flex, serialize_item, write_message, get_latests_messages, deserialize_item, get_metadata
 
 
-AGENT_NAMES = ["Carlos", "Sofía", "Andrés", "Valentina", "Mateo", "Isabella"]
+AGENT_NAMES = ["Sofía"]
 
 def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Optional[str] = None, metadata:dict = {}, verbose:bool = False):
     """Logica por stages para el procesamiento de chats"""
@@ -39,7 +40,7 @@ def proccess_chat_turn(user_id: str, conv_id:str, message:str, user_name: Option
 
         # Respuesta de confirmación de reset
         reset_response = {
-            'model_response': f'¡Perfecto {user_name}! Vamos a comenzar una nueva búsqueda desde cero. ¿Qué tipo de propiedad estás buscando?'
+            'model_response': f'¡Perfecto {user_name}! Vamos a comenzar una nueva búsqueda desde cero. ¿Qué tipo de propiedad estás buscando? (ej. {', '.join(get_property_types_from_db())})'
         }
 
         # Guardar mensaje de reset y respuesta
@@ -588,6 +589,9 @@ def enrich_properties_display(properties, user_name=""):
                              f'❌ **Salir** - Terminar la búsqueda\n\n'
                              f'Por favor, responde con "A", "B" o "Salir".'
         }
+
+    # Ordenar propiedades por score (de mayor a menor)
+    properties.sort(key=lambda x: x.get('score', 0), reverse=True)
 
     # Mensaje de introducción personalizado
     intro_messages = [

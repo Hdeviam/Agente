@@ -1,5 +1,7 @@
 from app.models.PropertyLead import PropertyLead
 import re
+from app.services.postgres_queries import get_property_types_from_db
+import random
 
 def handle_smart_extraction(conversation, current_lead=None):
     """
@@ -226,7 +228,7 @@ def extract_info_intuitive(message, current_lead):
 def get_next_question_smart(lead):
     """Genera preguntas más naturales e intuitivas"""
     if not lead.tipo_propiedad:
-        return "¿Qué tipo de propiedad te interesa? Puedes decirme: departamento, casa, oficina, o lo que tengas en mente 😊"
+        return f"¿Qué tipo de propiedad te interesa? Puedes decirme: {', '.join(get_property_types_from_db())}, o lo que tengas en mente 😊"
 
     elif not lead.ubicacion:
         tipo = lead.tipo_propiedad[0] if lead.tipo_propiedad else "propiedad"
@@ -275,15 +277,13 @@ def is_greeting_message(message):
 
 def generate_greeting_response(user_name=""):
     """Genera respuesta de saludo más natural"""
-    import random
-
-    agent_names = ["Carlos", "Sofía", "Andrés", "Valentina", "Mateo", "Isabella"]
+    agent_names = ["Sofía"]
     agent_name = random.choice(agent_names)
 
     name_part = f" {user_name}" if user_name else ""
 
     greetings = [
-        f"¡Hola{name_part}! Soy {agent_name}, tu agente inmobiliario virtual 😊 ¿Qué tipo de propiedad estás buscando?",
+        f"¡Hola{name_part}! Soy {agent_name}, tu agente inmobiliario virtual 😊 ¿Qué tipo de propiedad estás buscando? (ej. {', '.join(get_property_types_from_db())})",
         f"¡Qué tal{name_part}! Me llamo {agent_name} y estoy aquí para ayudarte a encontrar tu propiedad ideal 🏠 ¿En qué puedo asistirte?",
         f"¡Hola{name_part}! Soy {agent_name}, especialista en bienes raíces ✨ ¿Qué tipo de inmueble te interesa?",
         f"¡Bienvenido{name_part}! Me llamo {agent_name} y me encanta ayudar a las personas a encontrar su hogar perfecto 🏡 ¿Qué buscas?"

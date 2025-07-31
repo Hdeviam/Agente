@@ -14,7 +14,7 @@ def test_conversation_flow():
     """
     Simula una conversación completa para probar el flujo
     """
-    print("🤖 Iniciando prueba del flujo conversacional del chatbot housy-IA")
+    print("Iniciando prueba del flujo conversacional del chatbot housy-IA")
     print("=" * 60)
 
     # Datos de prueba
@@ -33,13 +33,13 @@ def test_conversation_flow():
         "A"   # Programar visita
     ]
 
-    print(f"👤 Usuario: {user_name}")
-    print(f"🆔 User ID: {user_id}")
-    print(f"💬 Conversation ID: {conv_id}")
+    print(f"Usuario: {user_name}")
+    print(f"User ID: {user_id}")
+    print(f"Conversation ID: {conv_id}")
     print("-" * 60)
 
     for i, message in enumerate(test_messages, 1):
-        print(f"\n📝 Mensaje {i}: {message}")
+        print(f"\nMensaje {i}: {message}")
 
         try:
             # Procesar mensaje
@@ -52,22 +52,22 @@ def test_conversation_flow():
                 verbose=True
             )
 
-            print(f"🎯 Stage: {stage}")
+            print(f"Stage: {stage}")
 
             if isinstance(response, dict) and 'model_response' in response:
-                print(f"🤖 Respuesta: {response['model_response'][:200]}...")
+                print(f"Respuesta: {response['model_response'][:200]}...")
             elif isinstance(response, list):
-                print(f"🏠 Propiedades encontradas: {len(response)}")
+                print(f"Propiedades encontradas: {len(response)}")
             else:
-                print(f"📄 Respuesta: {str(response)[:200]}...")
+                print(f"Respuesta: {str(response)[:200]}...")
 
         except Exception as e:
-            print(f"❌ Error en mensaje {i}: {str(e)}")
+            print(f"Error en mensaje {i}: {str(e)}")
             break
 
         print("-" * 40)
 
-    print("\n✅ Prueba completada")
+    print("\nPrueba completada")
 
 def test_intent_recognition():
     """
@@ -75,7 +75,7 @@ def test_intent_recognition():
     """
     from IA.app.utils.intent_recognition import check_intent
 
-    print("\n🧠 Probando reconocimiento de intenciones:")
+    print("\nProbando reconocimiento de intenciones:")
 
     test_cases = [
         ("sí, quiero ver las propiedades", "affirmative"),
@@ -87,14 +87,14 @@ def test_intent_recognition():
 
     for text, expected in test_cases:
         result = check_intent(text)
-        status = "✅" if result == expected else "❌"
+        status = "OK" if result == expected else "FAIL"
         print(f"{status} '{text}' -> {result} (esperado: {expected})")
 
 if __name__ == "__main__":
-    print("🚀 Iniciando pruebas del chatbot housy-IA")
+    print("Iniciando pruebas del chatbot housy-IA")
 
     # Nota: Estas pruebas requieren conexión a AWS y las dependencias configuradas
-    print("⚠️  Nota: Las pruebas requieren configuración de AWS y dependencias")
+    print("Nota: Las pruebas requieren configuración de AWS y dependencias")
 
     # Probar reconocimiento de intenciones (no requiere AWS)
     test_intent_recognition()
@@ -102,4 +102,4 @@ if __name__ == "__main__":
     # Descomentar para probar flujo completo (requiere AWS configurado)
     # test_conversation_flow()
 
-    print("\n🎉 Pruebas completadas")
+    print("\nPruebas completadas")

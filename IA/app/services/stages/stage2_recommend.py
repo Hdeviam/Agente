@@ -83,7 +83,7 @@ def create_lead_description(lead: PropertyLead) -> str:
 
     return ", ".join(lead_description_list)
 
-def build_recommendation_response(resultados):
+def build_recommendation_response(resultados, lead: PropertyLead):
     if resultados:
         ids = [r["id"] for r in resultados]
         msg = "Estas propiedades podrían interesarte:\n\n"
@@ -91,6 +91,19 @@ def build_recommendation_response(resultados):
             msg += f"🏠 Propiedad #{i} (ID: {r['id']}): {r['text']}\n\n"
     else:
         ids = []
-        msg = "No encontramos propiedades que coincidan."
+        msg = (
+            "No encontramos propiedades que coincidan con tu búsqueda actual.\n\n"
+            "¿Te gustaría refinarla? Podríamos intentar:\n"
+            "A. Cambiar la ubicación (ej. 'Buscar en Miraflores')\n"
+            "B. Modificar el tipo de propiedad (ej. 'Quiero un departamento')\n"
+            "C. Ajustar el tipo de transacción (ej. 'Para alquiler')\n"
+            "D. Iniciar una nueva búsqueda desde cero."
+        )
+        if lead.ubicacion:
+            msg += f"\nTu búsqueda actual es en: {lead.ubicacion}"
+        if lead.tipo_propiedad:
+            msg += f"\nTipo de propiedad: {', '.join(lead.tipo_propiedad)}"
+        if lead.transaccion:
+            msg += f"\nTipo de transacción: {lead.transaccion}"
 
     return msg, ids

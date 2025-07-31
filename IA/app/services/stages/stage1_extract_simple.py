@@ -87,7 +87,7 @@ def extract_info_simple(message, current_lead):
 def get_next_question(lead):
     """Genera la siguiente pregunta"""
     if not lead.tipo_propiedad:
-        return "¿Qué tipo de propiedad estás buscando? Por ejemplo: departamento, casa, oficina..."
+        return f"¿Qué tipo de propiedad estás buscando? Por ejemplo: {', '.join(get_property_types_from_db())}..."
 
     elif not lead.ubicacion:
         return "¿En qué ciudad o distrito te gustaría buscar? Por ejemplo: Lima, Miraflores, San Isidro..."
@@ -122,11 +122,12 @@ def is_greeting_message(message):
 
 def generate_greeting_response(user_name=""):
     """Genera respuesta de saludo"""
-    import random
+    from app.services.postgres_queries import get_property_types_from_db
+import random
 
-    agent_names = ["Carlos", "Sofía", "Andrés", "Valentina", "Mateo", "Isabella"]
+    agent_names = ["Sofía"]
     agent_name = random.choice(agent_names)
 
     name_part = f" {user_name}" if user_name else ""
 
-    return f"¡Hola{name_part}! Soy {agent_name}, tu agente inmobiliario virtual. Me da mucho gusto conocerte. ¿Qué tipo de propiedad estás buscando?"
+    return f"¡Hola{name_part}! Soy {agent_name}, tu agente inmobiliario virtual. Me da mucho gusto conocerte. ¿Qué tipo de propiedad estás buscando? (ej. {', '.join(get_property_types_from_db())})"
